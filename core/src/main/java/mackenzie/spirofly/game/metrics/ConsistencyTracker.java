@@ -1,15 +1,17 @@
 package mackenzie.spirofly.game.metrics;
 
+import mackenzie.spirofly.game.audio.AudioCaptureService;
+
 import java.util.LinkedList;
 
 /**
- * Monitora em tempo real a consistência do sopro/fonação do paciente e
- * a manutenção da altitude segura, convertendo estabilidade e precisão em
- * pontuação e métricas clínicas para a sessão terapêutica.
+ * Monitora em tempo real a consistência do sopro/fonação do paciente,
+ * a manutenção da altitude em corredores amplos ou passagens estreitas,
+ * a modulação de tons (agudos e graves), coleta de moedas e desvio de pássaros.
  */
 public class ConsistencyTracker {
 
-    private static final float VOLUME_THRESHOLD = 400f;
+    private static final float VOLUME_THRESHOLD = 380f;
     private static final float INTERRUPTION_GRACE_PERIOD = 0.35f; // segundos tolerados antes de considerar quebra
     private static final int ROLLING_SAMPLE_SIZE = 60; // ~1 segundo a 60 FPS
 
@@ -23,6 +25,18 @@ public class ConsistencyTracker {
     private int cloudHits = 0;
     private boolean wasInCloud = false;
     private boolean isInCloud = false;
+
+    // Métricas da Fase 2: Moedas e Pássaros
+    private int coinsCollected = 0;
+    private int totalCoinsSpawned = 0;
+    private int birdsDodged = 0;
+    private int birdHits = 0;
+
+    // Modulação de Tons (Pitch)
+    private float highPitchTime = 0f;
+    private float lowPitchTime = 0f;
+    private float midPitchTime = 0f;
+    private AudioCaptureService.PitchTone currentTone = AudioCaptureService.PitchTone.NONE;
 
     private float currentStreak = 0f;
     private float longestStreak = 0f;
@@ -56,6 +70,17 @@ public class ConsistencyTracker {
         cloudHits = 0;
         wasInCloud = false;
         isInCloud = false;
+
+        coinsCollected = 0;
+        totalCoinsSpawned = 0;
+        birdsDodged = 0;
+        birdHits = 0;
+
+        highPitchTime = 0f;
+        lowPitchTime = 0f;
+        midPitchTime = 0f;
+        currentTone = AudioCaptureService.PitchTone.NONE;
+
         currentStreak = 0f;
         longestStreak = 0f;
         interruptions = 0;
@@ -72,16 +97,22 @@ public class ConsistencyTracker {
     }
 
     public void update(float delta, float volume, float balloonY, float corridorYMin, float corridorYMax) {
-        update(delta, volume, balloonY, corridorYMin, corridorYMax, false);
+        update(delta, volume, AudioCaptureService.PitchTone.NONE, balloonY, corridorYMin, corridorYMax, false);
+    }
+
+    public void update(float delta, float volume, float balloonY, float corridorYMin, float corridorYMax, boolean inCloudTurbulence) {
+        update(delta, volume, AudioCaptureService.PitchTone.NONE, balloonY, corridorYMin, corridorYMax, inCloudTurbulence);
     }
 
     /**
-     * Atualiza o monitoramento a cada quadro da gameplay, considerando a presença de nuvens/turbulência.
+     * Atualiza o monitoramento a cada quadro da gameplay, considerando volume, tom de afinação e turbulência.
      */
-    public void update(float delta, float volume, float balloonY, float corridorYMin, float corridorYMax, boolean inCloudTurbulence) {
+    public void update(float delta, float volume, AudioCaptureService.PitchTone tone, float balloonY,
+                       float corridorYMin, float corridorYMax, boolean inCloudTurbulence) {
         if (delta <= 0f) return;
         totalPhaseTime += delta;
         isInCloud = inCloudTurbulence;
+        this.currentTone = tone;
 
         boolean isBlowing = volume >= VOLUME_THRESHOLD;
         isInsideTargetCorridor = balloonY >= corridorYMin && balloonY <= corridorYMax;
@@ -90,7 +121,7 @@ public class ConsistencyTracker {
             peakVolume = volume;
         }
 
-        // Monitoramento de contato com nuvens
+        // Rastreamento de contato com nuvens/obstáculos
         if (inCloudTurbulence) {
             turbulenceTime += delta;
             if (!wasInCloud) {
@@ -108,6 +139,15 @@ public class ConsistencyTracker {
 
         if (isBlowing) {
             effectivePhonationTime += delta;
+
+            // Contabilização da modulação vocal
+            if (tone == AudioCaptureService.PitchTone.AGUDO) {
+                highPitchTime += delta;
+            } else if (tone == AudioCaptureService.PitchTone.GRAVE) {
+                lowPitchTime += delta;
+            } else {
+                midPitchTime += delta;
+            }
 
             if (!inCloudTurbulence) {
                 currentStreak += delta;
@@ -149,10 +189,8 @@ public class ConsistencyTracker {
                 float pointsEarned = 100f * delta * currentScoreMultiplier * (0.5f + (currentStability * 0.5f));
                 accumulatedScore += pointsEarned;
             } else if (inCloudTurbulence) {
-                // Em turbulência ganha pontuação mínima apenas para recompensar o esforço respiratório contínuo
                 accumulatedScore += 10f * delta;
             } else {
-                // Fora do corredor ganha pontuação moderada se o sopro for contínuo
                 accumulatedScore += 25f * delta * (0.5f + (currentStability * 0.5f));
             }
         } else {
@@ -170,6 +208,35 @@ public class ConsistencyTracker {
         }
 
         currentConsistencyPercent = calculateInstantConsistency();
+    }
+
+    /**
+     * Registra coleta de moeda com bônus de pontuação.
+     */
+    public void recordCoinCollected(int bonusPoints) {
+        coinsCollected++;
+        accumulatedScore += bonusPoints;
+    }
+
+    public void recordCoinSpawned() {
+        totalCoinsSpawned++;
+    }
+
+    /**
+     * Registra desvio bem-sucedido de pássaro.
+     */
+    public void recordBirdDodged(int bonusPoints) {
+        birdsDodged++;
+        accumulatedScore += bonusPoints;
+    }
+
+    /**
+     * Registra colisão com pássaro.
+     */
+    public void recordBirdHit() {
+        birdHits++;
+        currentStreak = 0f;
+        currentScoreMultiplier = 1.0f;
     }
 
     /**
@@ -205,7 +272,7 @@ public class ConsistencyTracker {
         float targetRatio = effectivePhonationTime > 0f ? (safeAltitudeTime / effectivePhonationTime) : 0f;
         float phonationRatio = totalPhaseTime > 0f ? (effectivePhonationTime / totalPhaseTime) : 0f;
         float continuityFactor = Math.max(0.4f, 1.0f - (interruptions * 0.08f));
-        float turbulenceFactor = Math.max(0.5f, 1.0f - (cloudHits * 0.04f));
+        float turbulenceFactor = Math.max(0.45f, 1.0f - (cloudHits * 0.04f + birdHits * 0.05f));
 
         float composite = (0.50f * targetRatio + 0.30f * currentStability + 0.20f * phonationRatio)
             * continuityFactor * turbulenceFactor * 100f;
@@ -235,14 +302,38 @@ public class ConsistencyTracker {
         metrics.cloudHitsCount = cloudHits;
         metrics.turbulenceDuration = turbulenceTime;
 
+        // Métricas da Fase 2
+        metrics.coinsCollected = coinsCollected;
+        metrics.totalCoinsSpawned = totalCoinsSpawned;
+        metrics.birdsDodged = birdsDodged;
+        metrics.birdHitsCount = birdHits;
+        metrics.highPitchTimeSec = highPitchTime;
+        metrics.lowPitchTimeSec = lowPitchTime;
+        metrics.midPitchTimeSec = midPitchTime;
+
+        float activeTime = highPitchTime + lowPitchTime + midPitchTime;
+        float modulationBalance = (activeTime > 0f) ?
+            Math.min(highPitchTime, lowPitchTime) / (activeTime / 2f) * 100f : 0f;
+        metrics.pitchModulationScore = Math.min(100f, Math.max(0f, modulationBalance));
+
         metrics.targetTimeRatio = totalPhaseTime > 0f ? (targetDuration / totalPhaseTime) * 100f : 0f;
         metrics.consistencyPercent = calculateInstantConsistency();
 
-        // Bônus final de consistência na pontuação
+        // Bônus final de consistência e itens na pontuação
         int consistencyBonus = Math.round(metrics.consistencyPercent * 10f);
         metrics.finalScore = Math.round(accumulatedScore) + consistencyBonus;
 
-        // Avaliação clínica e estrelas customizadas para o Vale das Brisas
+        // Avaliação clínica e feedback personalizado por fase
+        if (phaseNumber == 2) {
+            evaluatePhase2(metrics);
+        } else {
+            evaluatePhase1(metrics);
+        }
+
+        return metrics;
+    }
+
+    private void evaluatePhase1(ConsistencyMetrics metrics) {
         if (metrics.consistencyPercent >= 80f && metrics.cloudHitsCount <= 1) {
             metrics.stars = 3;
             metrics.clinicalLevel = "Excelente Estabilidade";
@@ -260,8 +351,33 @@ public class ConsistencyTracker {
             metrics.clinicalLevel = "Necessita Nova Prática";
             metrics.clinicalFeedback = "Sopro irregular ou com perda precoce de sustentação. Pratique a emissão contínua em volume suave antes de retomar o voo.";
         }
+    }
 
-        return metrics;
+    private void evaluatePhase2(ConsistencyMetrics metrics) {
+        int coinSuccessRatio = metrics.totalCoinsSpawned > 0 ?
+            (int) ((metrics.coinsCollected / (float) metrics.totalCoinsSpawned) * 100f) : 100;
+
+        boolean goodModulation = metrics.highPitchTimeSec > 2.5f && metrics.lowPitchTimeSec > 2.5f;
+
+        if (metrics.consistencyPercent >= 75f && metrics.birdHitsCount <= 1 && coinSuccessRatio >= 65) {
+            metrics.stars = 3;
+            metrics.clinicalLevel = "Excelente Modulação Harmônica";
+            metrics.clinicalFeedback = String.format("Notável flexibilidade vocal! O paciente modulou agudos (%.1fs) e graves (%.1fs) com maestria, coletou %d moedas e desviou das aves com segurança.",
+                metrics.highPitchTimeSec, metrics.lowPitchTimeSec, metrics.coinsCollected);
+        } else if (metrics.consistencyPercent >= 55f && metrics.birdHitsCount <= 3) {
+            metrics.stars = 2;
+            metrics.clinicalLevel = "Boa Modulação Vocal";
+            metrics.clinicalFeedback = String.format("Bom domínio nas passagens estreitas. Conseguiu desviar de %d pássaros e coletar %d moedas. Recomenda-se treinar a transição suave entre notas agudas e graves.",
+                metrics.birdsDodged, metrics.coinsCollected);
+        } else if (metrics.consistencyPercent >= 35f) {
+            metrics.stars = 1;
+            metrics.clinicalLevel = "Modulação Inicial em Desenvolvimento";
+            metrics.clinicalFeedback = "O paciente enfrentou desafios ao alternar entre os tons agudos e graves nas passagens estreitas. Estimule exercícios de glissando vocal e controle expiratório prévio.";
+        } else {
+            metrics.stars = 0;
+            metrics.clinicalLevel = "Prática Vocal Recomendada";
+            metrics.clinicalFeedback = "Dificuldade na coordenação pneumofonoarticulatória. Foco recomendado em vocalizações isoladas graves e agudas antes de integrar à navegação rápida.";
+        }
     }
 
     // Getters para HUD
@@ -276,4 +392,8 @@ public class ConsistencyTracker {
     public int getInterruptions() { return interruptions; }
     public float getEffectivePhonationTime() { return effectivePhonationTime; }
     public float getTotalPhaseTime() { return totalPhaseTime; }
+    public int getCoinsCollected() { return coinsCollected; }
+    public int getBirdsDodged() { return birdsDodged; }
+    public int getBirdHits() { return birdHits; }
+    public AudioCaptureService.PitchTone getCurrentTone() { return currentTone; }
 }

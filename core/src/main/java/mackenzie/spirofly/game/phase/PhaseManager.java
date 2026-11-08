@@ -29,21 +29,26 @@ public class PhaseManager {
             30f,
             145f, 335f,
             600f, 2200f,
-            true
+            true, false, false, false, false, 190f
         ));
 
-        // Fase 2: Controle de Altitude (35s, corredor moderado central)
+        // Fase 2: Desfiladeiro Harmônico - Passagens Estreitas, Pássaros e Moedas
         phases.add(new PhaseConfig(
             2,
-            "Fase 2: Controle de Altitude",
-            "Sustente o fluxo calibrado para estabilizar o balão no corredor central.",
-            35f,
-            170f, 310f,
-            800f, 2000f,
-            true
+            "Fase 2: Desfiladeiro Harmônico",
+            "Module tons agudos e graves e controle o sopro para atravessar fendas estreitas, desviar de pássaros e coletar moedas.",
+            40f,
+            150f, 330f,
+            700f, 2200f,
+            true,
+            true,  // hasBirds
+            true,  // hasCoins
+            true,  // hasPitchModulation
+            true,  // isNarrowPassages
+            95f    // narrowCorridorHeight (passagens estreitas de 95px!)
         ));
 
-        // Fase 3: Resistência Respiratória (45s, corredor mais estreito)
+        // Fase 3: Resistência Respiratória (45s, corredor de alta sustentação)
         phases.add(new PhaseConfig(
             3,
             "Fase 3: Resistência Respiratória",
@@ -51,7 +56,7 @@ public class PhaseManager {
             45f,
             190f, 290f,
             900f, 1900f,
-            true
+            true, false, true, true, false, 100f
         ));
     }
 

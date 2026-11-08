@@ -130,4 +130,59 @@ public class ConsistencyTrackerTest {
         assertEquals(3500, manager.calculateTotalSessionScore());
         assertEquals(82.5f, manager.calculateAverageSessionConsistency(), 0.01f);
     }
+
+    @Test
+    public void testPhase2SupportsNarrowPassagesBirdsAndCoinsConfig() {
+        PhaseManager manager = new PhaseManager();
+        assertTrue(manager.advanceToNextPhase());
+
+        PhaseConfig phase2 = manager.getCurrentPhase();
+        assertEquals(2, phase2.phaseNumber);
+        assertTrue("Fase 2 deve ter pássaros ativos", phase2.hasBirds);
+        assertTrue("Fase 2 deve ter moedas ativas", phase2.hasCoins);
+        assertTrue("Fase 2 deve ter modulação de pitch ativa", phase2.hasPitchModulation);
+        assertTrue("Fase 2 deve ter passagens estreitas ativas", phase2.isNarrowPassages);
+        assertEquals(95f, phase2.narrowCorridorHeight, 0.01f);
+        assertEquals(95f, phase2.getCorridorHeight(), 0.01f);
+    }
+
+    @Test
+    public void testPhase2TracksPitchModulationAndCoinCollection() {
+        float dt = 1f / 60f;
+        float corridorMin = 180f;
+        float corridorMax = 280f;
+
+        // Registra spawn e coleta de moedas
+        for (int i = 0; i < 5; i++) {
+            tracker.recordCoinSpawned();
+        }
+        tracker.recordCoinCollected(150);
+        tracker.recordCoinCollected(150);
+        tracker.recordCoinCollected(100);
+        tracker.recordCoinCollected(100);
+
+        // Registra desvios de pássaros
+        tracker.recordBirdDodged(60);
+        tracker.recordBirdDodged(60);
+
+        // Simula 3 segundos de fonação aguda e 3 segundos de fonação grave
+        for (int i = 0; i < 180; i++) {
+            tracker.update(dt, 1200f, mackenzie.spirofly.game.audio.AudioCaptureService.PitchTone.AGUDO, 240f, corridorMin, corridorMax, false);
+        }
+        for (int i = 0; i < 180; i++) {
+            tracker.update(dt, 1200f, mackenzie.spirofly.game.audio.AudioCaptureService.PitchTone.GRAVE, 210f, corridorMin, corridorMax, false);
+        }
+
+        ConsistencyMetrics metrics = tracker.finalizeMetrics(2, "Fase 2: Desfiladeiro Harmônico");
+
+        assertEquals(4, metrics.coinsCollected);
+        assertEquals(5, metrics.totalCoinsSpawned);
+        assertEquals(2, metrics.birdsDodged);
+        assertEquals(0, metrics.birdHitsCount);
+        assertTrue("Deve registrar tempo em tom agudo", metrics.highPitchTimeSec >= 2.8f);
+        assertTrue("Deve registrar tempo em tom grave", metrics.lowPitchTimeSec >= 2.8f);
+        assertTrue("Consistência deve ser alta", metrics.consistencyPercent >= 75f);
+        assertEquals("Excelente Modulação Harmônica", metrics.clinicalLevel);
+        assertEquals(3, metrics.stars);
+    }
 }

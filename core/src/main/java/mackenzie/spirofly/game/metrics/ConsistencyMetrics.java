@@ -29,6 +29,16 @@ public class ConsistencyMetrics {
     public float averageVolume;          // Volume médio durante o sopro
     public float peakVolume;             // Volume máximo alcançado
 
+    // Desafios da Fase 2: Moedas, Pássaros e Modulação de Tons
+    public int coinsCollected;           // Moedas coletadas pelo paciente
+    public int totalCoinsSpawned;        // Total de moedas geradas na fase
+    public int birdsDodged;              // Pássaros desviados com sucesso
+    public int birdHitsCount;            // Colisões com pássaros
+    public float highPitchTimeSec;       // Tempo de fonação em tom agudo (segundos)
+    public float lowPitchTimeSec;        // Tempo de fonação em tom grave (segundos)
+    public float midPitchTimeSec;        // Tempo de fonação em tom médio (segundos)
+    public float pitchModulationScore;   // Índice de flexibilidade vocal / modulação harmônica (0 a 100%)
+
     // Avaliação qualitativa e recomendações clínicas
     public String clinicalLevel;         // Ex: "Excelente Estabilidade", "Controle Regular"
     public String clinicalFeedback;      // Orientação terapêutica detalhada

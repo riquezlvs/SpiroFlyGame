@@ -96,6 +96,10 @@ public class CloudManager {
     }
 
     public void update(float delta) {
+        update(delta, safeYMin, safeYMax, false);
+    }
+
+    public void update(float delta, float corridorMinY, float corridorMaxY, boolean isNarrow) {
         // 1. Atualiza nuvens distantes (paralaxe suave)
         for (CloudObstacle c : distantClouds) {
             c.update(delta);
@@ -105,9 +109,16 @@ public class CloudManager {
             }
         }
 
-        // 2. Atualiza barreiras contínuas
-        updateBarrierList(topBarriers, delta, worldHeight - 85f, 260f, 115f, 65f);
-        updateBarrierList(bottomBarriers, delta, -42f, 260f, 115f, 55f);
+        // 2. Atualiza barreiras contínuas (ajustadas dinamicamente nas passagens estreitas)
+        float topY = isNarrow ?
+            Math.max(worldHeight - 130f, corridorMaxY + 12f) :
+            (worldHeight - 85f);
+        float bottomY = isNarrow ?
+            Math.min(corridorMinY - 115f + 16f, -10f) :
+            -42f;
+
+        updateBarrierList(topBarriers, delta, topY, 260f, 115f, 65f);
+        updateBarrierList(bottomBarriers, delta, bottomY, 260f, 115f, 55f);
 
         // 3. Atualiza nuvens flutuantes simples
         updateDriftingClouds(delta);
@@ -116,16 +127,20 @@ public class CloudManager {
         spawnTimer += delta;
         if (spawnTimer >= nextSpawnInterval) {
             spawnTimer = 0f;
-            nextSpawnInterval = MathUtils.random(4.5f, 6.8f);
-            spawnDriftingCloud();
+            nextSpawnInterval = isNarrow ? MathUtils.random(5.5f, 8.0f) : MathUtils.random(4.5f, 6.8f);
+            spawnDriftingCloud(corridorMinY, corridorMaxY, isNarrow);
         }
     }
 
-    private void updateBarrierList(List<CloudObstacle> list, float delta, float fixedY,
+    private void updateBarrierList(List<CloudObstacle> list, float delta, float targetY,
                                    float width, float height, float speed) {
         float maxRightX = 0f;
         for (CloudObstacle c : list) {
             c.update(delta);
+            // Suavização vertical em direção a targetY
+            float currentY = c.getY();
+            c.setY(MathUtils.lerp(currentY, targetY, delta * 2.5f));
+
             if (c.getX() + c.getWidth() > maxRightX) {
                 maxRightX = c.getX() + c.getWidth();
             }
@@ -134,7 +149,7 @@ public class CloudManager {
         for (CloudObstacle c : list) {
             if (c.isOffScreen(-60f)) {
                 c.setX(maxRightX - (width * 0.28f));
-                c.setY(fixedY);
+                c.setY(targetY);
             }
         }
     }
@@ -154,16 +169,20 @@ public class CloudManager {
      * Spawna uma nuvem flutuante suave que navega pelo vale.
      */
     private void spawnDriftingCloud() {
-        float width = MathUtils.random(135f, 185f);
+        spawnDriftingCloud(safeYMin, safeYMax, false);
+    }
+
+    private void spawnDriftingCloud(float minY, float maxY, boolean isNarrow) {
+        float width = isNarrow ? MathUtils.random(110f, 150f) : MathUtils.random(135f, 185f);
         float height = width * 0.54f;
         float speed = MathUtils.random(110f, 145f);
 
         boolean spawnHigh = MathUtils.randomBoolean();
         float spawnY;
         if (spawnHigh) {
-            spawnY = safeYMax + MathUtils.random(10f, 30f);
+            spawnY = maxY + MathUtils.random(8f, 25f);
         } else {
-            spawnY = safeYMin - height - MathUtils.random(8f, 25f);
+            spawnY = minY - height - MathUtils.random(8f, 25f);
         }
 
         driftingClouds.add(new CloudObstacle(

@@ -47,6 +47,7 @@ public class ClinicalSummaryScreen implements Screen {
     private final Rectangle btnResetBounds = new Rectangle(550f, 30f, 140f, 44f);
 
     private final Vector3 mousePos = new Vector3();
+    private boolean isChangingScreen = false;
 
     public ClinicalSummaryScreen(SpiroFlyGame game, ConsistencyMetrics metrics, PhaseManager phaseManager) {
         this.game = game;
@@ -78,7 +79,11 @@ public class ClinicalSummaryScreen implements Screen {
 
     @Override
     public void render(float delta) {
+        if (isChangingScreen) return;
+
         handleInput();
+
+        if (isChangingScreen) return;
 
         ScreenUtils.clear(0.06f, 0.08f, 0.12f, 1f);
 
@@ -158,23 +163,46 @@ public class ClinicalSummaryScreen implements Screen {
         float col2X = 535f;
 
         uiHelper.getSmallFont().setColor(Color.LIGHT_GRAY);
-        uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Altitude Segura: %.1fs (%.0f%%)",
-            metrics.safeAltitudeTimeSec, metrics.safeAltitudeRatio), col1X, 335f);
 
-        uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Sopro Efetivo: %.1fs / %.1fs",
-            metrics.effectivePhonationSec, metrics.phaseDurationSec), col1X, 305f);
+        if (metrics.phaseNumber == 2 || metrics.coinsCollected > 0 || metrics.birdsDodged > 0) {
+            // Métricas especializadas da Fase 2
+            uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Passagem Estreita: %.1fs (%.0f%%)",
+                metrics.safeAltitudeTimeSec, metrics.safeAltitudeRatio), col1X, 335f);
 
-        uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Maior Sustentação: %.1fs",
-            metrics.longestStreakSec), col1X, 275f);
+            uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Sopro Efetivo: %.1fs / %.1fs",
+                metrics.effectivePhonationSec, metrics.phaseDurationSec), col1X, 305f);
 
-        uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Toques em Nuvens: %d (Turbulência: %.1fs)",
-            metrics.cloudHitsCount, metrics.turbulenceDuration), col2X, 335f);
+            uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Modulação: Agudo %.1fs | Grave %.1fs",
+                metrics.highPitchTimeSec, metrics.lowPitchTimeSec), col1X, 275f);
 
-        uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Interrupções de Fluxo: %d",
-            metrics.interruptionCount), col2X, 305f);
+            uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Moedas Coletadas: %d / %d",
+                metrics.coinsCollected, metrics.totalCoinsSpawned), col2X, 335f);
 
-        uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Intensidade Média: %.0f RMS",
-            metrics.averageVolume), col2X, 275f);
+            uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Pássaros Desviados: %d (Toques: %d)",
+                metrics.birdsDodged, metrics.birdHitsCount), col2X, 305f);
+
+            uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Maior Sustentação: %.1fs",
+                metrics.longestStreakSec), col2X, 275f);
+        } else {
+            // Métricas padrão da Fase 1
+            uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Altitude Segura: %.1fs (%.0f%%)",
+                metrics.safeAltitudeTimeSec, metrics.safeAltitudeRatio), col1X, 335f);
+
+            uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Sopro Efetivo: %.1fs / %.1fs",
+                metrics.effectivePhonationSec, metrics.phaseDurationSec), col1X, 305f);
+
+            uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Maior Sustentação: %.1fs",
+                metrics.longestStreakSec), col1X, 275f);
+
+            uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Toques em Nuvens: %d (Turbulência: %.1fs)",
+                metrics.cloudHitsCount, metrics.turbulenceDuration), col2X, 335f);
+
+            uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Interrupções de Fluxo: %d",
+                metrics.interruptionCount), col2X, 305f);
+
+            uiHelper.getSmallFont().draw(batch, String.format(Locale.US, "• Intensidade Média: %.0f RMS",
+                metrics.averageVolume), col2X, 275f);
+        }
 
         // Resumo geral da sessão acumulada
         String totalScoreSession = String.format(Locale.US, "Pontuação Total na Sessão: %,d pts (Média Consistência: %.1f%%)",
@@ -248,24 +276,27 @@ public class ClinicalSummaryScreen implements Screen {
     }
 
     private void repeatCurrentPhase() {
+        if (isChangingScreen) return;
+        isChangingScreen = true;
         game.setScreen(new GameScreen(game, phaseManager));
-        dispose();
     }
 
     private void handleNextAction() {
+        if (isChangingScreen) return;
+        isChangingScreen = true;
         if (phaseManager.advanceToNextPhase()) {
             game.setScreen(new GameScreen(game, phaseManager));
         } else {
             // Se concluiu todas as 3 fases, reinicia a sessão terapêutica
             resetToFirstPhase();
         }
-        dispose();
     }
 
     private void resetToFirstPhase() {
+        if (isChangingScreen) return;
+        isChangingScreen = true;
         phaseManager.resetToFirstPhase();
         game.setScreen(new GameScreen(game, phaseManager));
-        dispose();
     }
 
     private String getStarsString(int stars) {
@@ -290,15 +321,18 @@ public class ClinicalSummaryScreen implements Screen {
 
     @Override
     public void hide() {
+        dispose();
     }
 
     @Override
     public void dispose() {
         if (uiHelper != null) {
             uiHelper.dispose();
+            uiHelper = null;
         }
         if (background != null) {
             background.dispose();
+            background = null;
         }
     }
 }
