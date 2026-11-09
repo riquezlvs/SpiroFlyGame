@@ -48,15 +48,24 @@ public class PhaseManager {
             95f    // narrowCorridorHeight (passagens estreitas de 95px!)
         ));
 
-        // Fase 3: Resistência Respiratória (45s, corredor de alta sustentação)
+        // [ALTERADO] Fase 3: A Tempestade nas Montanhas - evolução da Fase 2, cerca de 20% mais difícil.
+        // Antes (fase "Resistência Respiratória"): sem pássaros e sem passagens estreitas (corredor fixo de 100px).
+        // Agora: mantém todos os desafios da Fase 2 (passagens estreitas, pássaros, moedas e
+        // modulação de tom), com passagens mais estreitas, faixa de volume mais exigente,
+        // duração maior e pássaros/moedas mais difíceis (ver BirdManager e CoinManager).
         phases.add(new PhaseConfig(
             3,
-            "Fase 3: Resistência Respiratória",
-            "Desafio prolongado de sustentação muscular e controle uniforme de ar.",
+            "Fase 3: A Tempestade nas Montanhas",
+            "Atravesse a tempestade com sopro firme e controlado: passagens mais estreitas, pássaros em dupla e trocas rápidas entre tom agudo e grave.",
             45f,
             190f, 290f,
             900f, 1900f,
-            true, false, true, true, false, 100f
+            true,
+            true,  // hasBirds
+            true,  // hasCoins
+            true,  // hasPitchModulation
+            true,  // isNarrowPassages
+            80f    // narrowCorridorHeight (Fase 2 usa 95px)
         ));
     }
 

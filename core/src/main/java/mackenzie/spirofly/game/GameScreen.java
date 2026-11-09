@@ -25,6 +25,7 @@ import mackenzie.spirofly.game.phase.NarrowPassageController;
 import mackenzie.spirofly.game.phase.PhaseConfig;
 import mackenzie.spirofly.game.phase.PhaseManager;
 import mackenzie.spirofly.game.screens.ClinicalSummaryScreen;
+import mackenzie.spirofly.game.screens.MenuScreen; // [NOVO] volta ao menu
 import mackenzie.spirofly.game.ui.UIHelper;
 
 import java.util.Locale;
@@ -98,6 +99,17 @@ public class GameScreen implements Screen {
     private float activeCorridorYMin;
     private float activeCorridorYMax;
 
+    // [NOVO] Ambiente de tempestade (Fase 3: A Tempestade nas Montanhas)
+    private static final int RAIN_DROPS = 90;
+    private boolean isStormPhase = false;
+    private float[] rainX;
+    private float[] rainY;
+    private float[] rainSpeed;
+    private float[] rainLength;
+    private float lightningTimer = 0f;
+    private float nextLightningTime = 9f;
+    private float lightningGlow = 0f;
+
     public GameScreen(SpiroFlyGame game) {
         this(game, game.getPhaseManager() != null ? game.getPhaseManager() : new PhaseManager());
     }
@@ -117,6 +129,7 @@ public class GameScreen implements Screen {
         setupPhaseControllers();
         setupPositions();
         setupObstaclesAndBreeze();
+        setupStorm();
     }
 
     private void setupCamera() {
@@ -149,7 +162,7 @@ public class GameScreen implements Screen {
 
     private void setupPhaseControllers() {
         if (currentPhase.isNarrowPassages) {
-            narrowPassageController = new NarrowPassageController();
+            narrowPassageController = new NarrowPassageController(currentPhase.phaseNumber); // [ALTERADO]
             activeCorridorYMin = narrowPassageController.getCorridorYMin(0f);
             activeCorridorYMax = narrowPassageController.getCorridorYMax(0f);
         } else {
@@ -159,13 +172,13 @@ public class GameScreen implements Screen {
         }
 
         if (currentPhase.hasBirds) {
-            birdManager = new BirdManager(WORLD_WIDTH, WORLD_HEIGHT);
+            birdManager = new BirdManager(WORLD_WIDTH, WORLD_HEIGHT, currentPhase.phaseNumber); // [ALTERADO]
         } else {
             birdManager = null;
         }
 
         if (currentPhase.hasCoins) {
-            coinManager = new CoinManager(WORLD_WIDTH, WORLD_HEIGHT);
+            coinManager = new CoinManager(WORLD_WIDTH, WORLD_HEIGHT, currentPhase.phaseNumber); // [ALTERADO]
         } else {
             coinManager = null;
         }
@@ -213,6 +226,7 @@ public class GameScreen implements Screen {
         if (isPhaseCompleted) return;
 
         update(delta);
+        if (isPhaseCompleted) return; // [NOVO] a tela pode ter sido trocada dentro do update()
 
         ScreenUtils.clear(0.08f, 0.12f, 0.18f, 1f);
 
@@ -222,14 +236,21 @@ public class GameScreen implements Screen {
 
         // 1. Renderiza o fundo do cenário (Paralaxe Lento)
         batch.begin();
+        if (isStormPhase) {
+            batch.setColor(0.72f, 0.77f, 0.90f, 1f); // [NOVO] céu mais fechado
+        }
         batch.draw(background, bgX1, 0, bgWidth, WORLD_HEIGHT);
         batch.draw(background, bgX2, 0, bgWidth, WORLD_HEIGHT);
+        batch.setColor(Color.WHITE);
         batch.end();
 
         // 2. Renderiza as nuvens distantes da paisagem (Paralaxe Suave)
         batch.begin();
         cloudManager.renderBackgroundClouds(batch);
         batch.end();
+
+        // 2.5 [NOVO] Atmosfera de tempestade (escurecimento e brilho suave de relâmpago)
+        renderStormAtmosphere();
 
         // 3. Renderiza o Corredor Alvo (passagens estreitas ou corredor acolhedor)
         renderTargetCorridor(delta);
@@ -265,6 +286,9 @@ public class GameScreen implements Screen {
         // 9. Renderiza o Balão com dinâmicas orgânicas de voo
         renderBalloon();
 
+        // 9.5 [NOVO] Chuva fina (apenas na tempestade)
+        renderRain();
+
         // 10. Renderiza o Altímetro lateral e o HUD moderno
         renderHUD();
 
@@ -286,6 +310,7 @@ public class GameScreen implements Screen {
         }
 
         updateBackground(delta);
+        updateStorm(delta);
 
         float currentVolume = audioService.getCurrentVolume();
         AudioCaptureService.PitchTone currentTone = audioService.getCurrentTone();
@@ -329,6 +354,11 @@ public class GameScreen implements Screen {
         // Tecla de atalho para concluir fase e agilizar testes clínicos
         if (Gdx.input.isKeyJustPressed(Input.Keys.F)) {
             completePhase();
+        }
+
+        // [NOVO] Voltar ao menu
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            returnToMenu();
         }
     }
 
@@ -572,7 +602,7 @@ public class GameScreen implements Screen {
 
         // Texto do Painel Esquerdo: Fase e Tempo
         float remainingTime = Math.max(0f, currentPhase.durationSeconds - phaseElapsedTime);
-        String phaseHeader = currentPhase.phaseNumber == 2 ? "FASE 2: DESFILADEIRO" : "VALE DAS BRISAS";
+        String phaseHeader = getPhaseHeader(); // [NOVO] nome do HUD por fase (1, 2, 3...)
         String timeLeft = String.format(Locale.US, "%s  %02d:%02d", phaseHeader,
             (int) remainingTime / 60, (int) remainingTime % 60);
         uiHelper.getSmallFont().setColor(Color.WHITE);
@@ -666,6 +696,125 @@ public class GameScreen implements Screen {
         if (phaseElapsedTime >= currentPhase.durationSeconds) {
             completePhase();
         }
+    }
+
+    /**
+     * [NOVO] Prepara a chuva e o relâmpago quando a fase é a tempestade (Fase 3 em diante).
+     */
+    private void setupStorm() {
+        isStormPhase = currentPhase.phaseNumber >= 3;
+        lightningTimer = 0f;
+        nextLightningTime = MathUtils.random(6f, 10f);
+        lightningGlow = 0f;
+
+        if (!isStormPhase) {
+            rainX = null;
+            return;
+        }
+
+        rainX = new float[RAIN_DROPS];
+        rainY = new float[RAIN_DROPS];
+        rainSpeed = new float[RAIN_DROPS];
+        rainLength = new float[RAIN_DROPS];
+        for (int i = 0; i < RAIN_DROPS; i++) {
+            rainX[i] = MathUtils.random(0f, WORLD_WIDTH + 60f);
+            rainY[i] = MathUtils.random(0f, WORLD_HEIGHT);
+            rainSpeed[i] = MathUtils.random(260f, 380f);
+            rainLength[i] = MathUtils.random(8f, 16f);
+        }
+    }
+
+    private void updateStorm(float delta) {
+        if (!isStormPhase) return;
+
+        // Chuva caindo levemente inclinada para a esquerda (vento contrário ao voo)
+        for (int i = 0; i < RAIN_DROPS; i++) {
+            rainY[i] -= rainSpeed[i] * delta;
+            rainX[i] -= 85f * delta;
+            if (rainY[i] < -20f || rainX[i] < -20f) {
+                rainY[i] = WORLD_HEIGHT + MathUtils.random(0f, 40f);
+                rainX[i] = MathUtils.random(0f, WORLD_WIDTH + 60f);
+            }
+        }
+
+        // Relâmpago raro e SUAVE (brilho que se apaga devagar, sem piscar rápido)
+        lightningTimer += delta;
+        if (lightningTimer >= nextLightningTime) {
+            lightningTimer = 0f;
+            nextLightningTime = MathUtils.random(9f, 15f);
+            lightningGlow = 1f;
+        }
+        lightningGlow = Math.max(0f, lightningGlow - delta * 1.2f);
+    }
+
+    /**
+     * [NOVO] Escurece o cenário e aplica o brilho suave do relâmpago (atrás dos obstáculos).
+     * O brilho é fraco e dura cerca de 0,8s para não incomodar o paciente.
+     */
+    private void renderStormAtmosphere() {
+        if (!isStormPhase) return;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        ShapeRenderer sr = uiHelper.getShapeRenderer();
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.04f, 0.06f, 0.14f, 0.30f);
+        sr.rect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        if (lightningGlow > 0.01f) {
+            sr.setColor(0.85f, 0.90f, 1.0f, lightningGlow * 0.10f);
+            sr.rect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        }
+        sr.end();
+
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    /**
+     * [NOVO] Desenha as gotas de chuva (linhas finas e translúcidas).
+     */
+    private void renderRain() {
+        if (!isStormPhase || rainX == null) return;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        ShapeRenderer sr = uiHelper.getShapeRenderer();
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(0.75f, 0.85f, 1.0f, 0.32f);
+        for (int i = 0; i < RAIN_DROPS; i++) {
+            sr.line(rainX[i], rainY[i], rainX[i] + rainLength[i] * 0.3f, rainY[i] + rainLength[i]);
+        }
+        sr.end();
+
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    /**
+     * [NOVO] Texto do cabeçalho do HUD para a fase atual.
+     * Fases 1, 2 e 3 têm nomes curtos para caber no cartão; fases extras usam o título do PhaseConfig.
+     */
+    private String getPhaseHeader() {
+        switch (currentPhase.phaseNumber) {
+            case 1:
+                return "VALE DAS BRISAS";
+            case 2:
+                return "FASE 2: DESFILADEIRO";
+            case 3:
+                return "FASE 3: TEMPESTADE";
+            default:
+                String title = currentPhase.title != null ? currentPhase.title : "FASE " + currentPhase.phaseNumber;
+                return title.toUpperCase(Locale.ROOT); // o título já traz "Fase N: ..." 
+        }
+    }
+
+    /**
+     * [NOVO] Volta ao menu inicial. O hide() da tela já libera recursos e para o áudio.
+     */
+    private void returnToMenu() {
+        if (isPhaseCompleted) return;
+        isPhaseCompleted = true;
+        game.setScreen(new MenuScreen(game));
     }
 
     private void completePhase() {

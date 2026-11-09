@@ -4,49 +4,80 @@ import com.badlogic.gdx.math.MathUtils;
 import mackenzie.spirofly.game.audio.AudioCaptureService;
 
 /**
- * Controla as passagens estreitas dinâmicas da Fase 2 (Desfiladeiro Harmônico).
+ * Controla as passagens estreitas dinâmicas da Fase 2 (Desfiladeiro Harmônico)
+ * e da Fase 3 (A Tempestade nas Montanhas).
  * Gera transições suaves entre fendas altas (exigindo tom agudo),
  * fendas baixas (exigindo tom grave) e trechos de modulação contínua,
  * além de emitir dicas terapêuticas em tempo real para o paciente.
  */
 public class NarrowPassageController {
 
-    private final float baseCenterY = 240f;
-    private final float narrowHeight = 98f;
+    private static final float CYCLE_SECONDS = 24f;
 
+    private final float baseCenterY = 240f;
+
+    // [ALTERADO] Parâmetros que variam conforme a fase (antes eram constantes fixas)
+    private final float narrowHeight;  // altura da fenda
+    private final float peakY;         // altura do gargalo alto
+    private final float valleyY;       // altura do gargalo baixo
+    private final float speedFactor;   // 1.0 = ritmo original; 1.2 = trechos 20% mais rápidos
+
+    /**
+     * Mantém o comportamento original (Fase 2).
+     */
     public NarrowPassageController() {
+        this(2);
+    }
+
+    /**
+     * [NOVO] @param phaseNumber 2 ou menos = Fase 2 (original); 3 ou mais = Fase 3 (mais difícil).
+     * Fase 3: fenda mais estreita (98 -> 80 px), picos e vales mais extremos (325/150 -> 335/140)
+     * e ciclo 20% mais rápido, o que exige trocas de tom e de altitude mais ágeis.
+     */
+    public NarrowPassageController(int phaseNumber) {
+        if (phaseNumber >= 3) {
+            narrowHeight = 80f;
+            peakY = 335f;
+            valleyY = 140f;
+            speedFactor = 1.2f;
+        } else {
+            narrowHeight = 98f;
+            peakY = 325f;
+            valleyY = 150f;
+            speedFactor = 1.0f;
+        }
     }
 
     /**
      * Calcula o centro vertical Y da passagem estreita no instante atual do jogo.
      */
     public float getCorridorCenterY(float timeSec) {
-        // Ciclos de 24 segundos com progressão orgânica
-        float phaseTime = timeSec % 24f;
+        // Ciclos de 24 segundos (de ritmo escalado pela fase) com progressão orgânica
+        float phaseTime = (timeSec * speedFactor) % CYCLE_SECONDS;
 
         if (phaseTime < 4.0f) {
             // Trecho 1: Entrada suave e nivelada
             return baseCenterY;
         } else if (phaseTime < 9.5f) {
-            // Trecho 2: Gargalo Alto (eleva até 325f) -> Exige Tom Agudo
+            // Trecho 2: Gargalo Alto (eleva até peakY) -> Exige Tom Agudo
             float t = (phaseTime - 4.0f) / 5.5f;
             float smooth = MathUtils.sin(t * 3.14159f / 2f);
-            return MathUtils.lerp(baseCenterY, 325f, smooth);
+            return MathUtils.lerp(baseCenterY, peakY, smooth);
         } else if (phaseTime < 12.0f) {
             // Sustentação no pico alto
-            return 325f + MathUtils.sin((phaseTime - 9.5f) * 2.5f) * 6f;
+            return peakY + MathUtils.sin((phaseTime - 9.5f) * 2.5f) * 6f;
         } else if (phaseTime < 18.0f) {
-            // Trecho 3: Transição descendente para Gargalo Baixo (desce até 150f) -> Exige Tom Grave
+            // Trecho 3: Transição descendente para Gargalo Baixo (desce até valleyY) -> Exige Tom Grave
             float t = (phaseTime - 12.0f) / 6.0f;
             float smooth = (1f - MathUtils.cos(t * 3.14159f)) / 2f;
-            return MathUtils.lerp(325f, 150f, smooth);
+            return MathUtils.lerp(peakY, valleyY, smooth);
         } else if (phaseTime < 21.0f) {
             // Sustentação no vale baixo
-            return 150f + MathUtils.sin((phaseTime - 18.0f) * 2.5f) * 6f;
+            return valleyY + MathUtils.sin((phaseTime - 18.0f) * 2.5f) * 6f;
         } else {
             // Retorno suave ao centro
             float t = (phaseTime - 21.0f) / 3.0f;
-            return MathUtils.lerp(150f, baseCenterY, t);
+            return MathUtils.lerp(valleyY, baseCenterY, t);
         }
     }
 
