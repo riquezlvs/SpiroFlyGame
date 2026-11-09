@@ -797,7 +797,7 @@ public class GameScreen implements Screen {
     private String getPhaseHeader() {
         switch (currentPhase.phaseNumber) {
             case 1:
-                return "VALE DAS BRISAS";
+                return "FASE 1: VALE DAS BRISAS";
             case 2:
                 return "FASE 2: DESFILADEIRO";
             case 3:
