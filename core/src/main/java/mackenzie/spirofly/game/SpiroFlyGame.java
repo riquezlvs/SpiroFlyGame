@@ -3,6 +3,7 @@ package mackenzie.spirofly.game;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import mackenzie.spirofly.game.phase.PhaseManager;
+import mackenzie.spirofly.game.screens.MenuScreen;
 
 /**
  * Classe principal do jogo SpiroFly.
@@ -18,7 +19,7 @@ public class SpiroFlyGame extends Game {
     public void create() {
         batch = new SpriteBatch();
         phaseManager = new PhaseManager();
-        setScreen(new GameScreen(this, phaseManager));
+        setScreen(new MenuScreen(this));
     }
 
     public SpriteBatch getBatch() {

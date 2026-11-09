@@ -15,7 +15,7 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import mackenzie.spirofly.game.GameScreen;
-import mackenzie.spirofly.game.SpiroFlyGame;
+import mackenzie.spirofly.game.SpiroFlyGame;/*  */
 import mackenzie.spirofly.game.metrics.ConsistencyMetrics;
 import mackenzie.spirofly.game.phase.PhaseManager;
 import mackenzie.spirofly.game.ui.UIHelper;
@@ -42,9 +42,11 @@ public class ClinicalSummaryScreen implements Screen {
     private UIHelper uiHelper;
     private Texture background;
 
-    private final Rectangle btnRepeatBounds = new Rectangle(110f, 30f, 180f, 44f);
-    private final Rectangle btnNextBounds = new Rectangle(310f, 30f, 220f, 44f);
-    private final Rectangle btnResetBounds = new Rectangle(550f, 30f, 140f, 44f);
+    // [NOVO] Layout com 4 botões na mesma linha (inclui o botão Menu)
+    private final Rectangle btnRepeatBounds = new Rectangle(40f, 30f, 160f, 44f);
+    private final Rectangle btnNextBounds = new Rectangle(226f, 30f, 200f, 44f);
+    private final Rectangle btnResetBounds = new Rectangle(452f, 30f, 140f, 44f);
+    private final Rectangle btnMenuBounds = new Rectangle(618f, 30f, 140f, 44f);
 
     private final Vector3 mousePos = new Vector3();
     private boolean isChangingScreen = false;
@@ -232,6 +234,7 @@ public class ClinicalSummaryScreen implements Screen {
         boolean hoverRepeat = btnRepeatBounds.contains(mousePos.x, mousePos.y);
         boolean hoverNext = btnNextBounds.contains(mousePos.x, mousePos.y);
         boolean hoverReset = btnResetBounds.contains(mousePos.x, mousePos.y);
+        boolean hoverMenu = btnMenuBounds.contains(mousePos.x, mousePos.y);
 
         // Botão Repetir Fase
         uiHelper.drawButton(batch, btnRepeatBounds, "Repetir Fase", hoverRepeat,
@@ -247,6 +250,10 @@ public class ClinicalSummaryScreen implements Screen {
         // Botão Reiniciar do Início (Fase 1)
         uiHelper.drawButton(batch, btnResetBounds, "Reiniciar", hoverReset,
             new Color(0.40f, 0.22f, 0.25f, 0.9f), new Color(0.58f, 0.30f, 0.35f, 1f));
+
+        // [NOVO] Botão Menu
+        uiHelper.drawButton(batch, btnMenuBounds, "Menu", hoverMenu,
+            new Color(0.20f, 0.28f, 0.40f, 0.9f), new Color(0.30f, 0.42f, 0.60f, 1f));
     }
 
     private void updateMousePos() {
@@ -264,6 +271,8 @@ public class ClinicalSummaryScreen implements Screen {
                 handleNextAction();
             } else if (btnResetBounds.contains(mousePos.x, mousePos.y)) {
                 resetToFirstPhase();
+            } else if (btnMenuBounds.contains(mousePos.x, mousePos.y)) {
+                goToMenu(); // [NOVO]
             }
         }
 
@@ -272,6 +281,8 @@ public class ClinicalSummaryScreen implements Screen {
             repeatCurrentPhase();
         } else if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER) || Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
             handleNextAction();
+        } else if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.M)) {
+            goToMenu(); // [NOVO]
         }
     }
 
@@ -287,8 +298,10 @@ public class ClinicalSummaryScreen implements Screen {
         if (phaseManager.advanceToNextPhase()) {
             game.setScreen(new GameScreen(game, phaseManager));
         } else {
-            // Se concluiu todas as 3 fases, reinicia a sessão terapêutica
-            resetToFirstPhase();
+            // [ALTERADO] Sessão concluída: volta ao menu inicial.
+            // (Antes chamava resetToFirstPhase(), que retornava sem fazer nada porque
+            // isChangingScreen já estava true, deixando o botão "Concluir Sessão" travado.)
+            game.setScreen(new MenuScreen(game));
         }
     }
 
@@ -297,6 +310,15 @@ public class ClinicalSummaryScreen implements Screen {
         isChangingScreen = true;
         phaseManager.resetToFirstPhase();
         game.setScreen(new GameScreen(game, phaseManager));
+    }
+
+    /**
+     * [NOVO] Volta ao menu inicial.
+     */
+    private void goToMenu() {
+        if (isChangingScreen) return;
+        isChangingScreen = true;
+        game.setScreen(new MenuScreen(game));
     }
 
     private String getStarsString(int stars) {
