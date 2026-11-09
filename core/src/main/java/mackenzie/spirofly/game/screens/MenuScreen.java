@@ -24,17 +24,23 @@ import mackenzie.spirofly.game.ui.UIHelper;
  */
 public class MenuScreen implements Screen {
 
+    // Tamanho virtual da tela do jogo.
     private static final float WORLD_WIDTH = 800f;
     private static final float WORLD_HEIGHT = 480f;
     private static final float BACKGROUND_SCROLL_SPEED = 30f;
 
+    // Referência ao jogo principal para trocar telas e acessar o estado global.
     private final SpiroFlyGame game;
+
+    // Objetivo do libGDX para desenhar sprites na tela.
     private final SpriteBatch batch;
 
+    // Camera e viewport controlam a projeção da cena.
     private OrthographicCamera camera;
     private Viewport viewport;
     private UIHelper uiHelper;
 
+    // Texturas do fundo e do balão exibidos no menu.
     private Texture background;
     private Texture balloon;
 

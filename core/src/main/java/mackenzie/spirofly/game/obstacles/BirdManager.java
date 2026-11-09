@@ -16,17 +16,21 @@ import java.util.List;
  */
 public class BirdManager {
 
+    // Dimensões do mundo para calcular a posição dos pássaros e da tela.
     private final float worldWidth;
     private final float worldHeight;
 
+    // Texturas das asas em movimento para animar o pássaro.
     private Texture wingUpTexture;
     private Texture wingDownTexture;
 
+    // Lista de pássaros ativos na fase.
     private final List<BirdObstacle> birds = new ArrayList<>();
+
+    // Controle do cronômetro de spawn e do intervalo entre chegadas de pássaros.
     private float spawnTimer = 0f;
     private float nextSpawnInterval;
 
-    // [NOVO] Parâmetros de dificuldade (definidos por applyDifficulty)
     private float spawnIntervalMin;
     private float spawnIntervalMax;
     private float speedMin;

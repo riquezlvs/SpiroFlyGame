@@ -12,11 +12,17 @@ import java.util.Map;
  */
 public class PhaseManager {
 
+    // Lista de todas as fases do jogo.
     private final List<PhaseConfig> phases = new ArrayList<>();
+
+    // Armazena as métricas finais de cada fase para montar o resumo da sessão.
     private final Map<Integer, ConsistencyMetrics> phaseHistory = new HashMap<>();
+
+    // Índice da fase atual em execução.
     private int currentPhaseIndex = 0;
 
     public PhaseManager() {
+        // Carrega as fases iniciais no construtor.
         setupDefaultPhases();
     }
 

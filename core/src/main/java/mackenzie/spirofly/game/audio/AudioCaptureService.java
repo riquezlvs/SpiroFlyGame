@@ -8,13 +8,9 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.TargetDataLine;
 
-/**
- * Serviço responsável por capturar o áudio do microfone do usuário em background,
- * calcular o volume RMS em tempo real, detectar a frequência fundamental (Pitch / Hz),
- * classificar em tons Graves, Médios ou Agudos, e fornecer fallback via teclado.
- */
 public class AudioCaptureService {
 
+    // Classifica o tom detectado no áudio para controlar a resposta do jogo.
     public enum PitchTone {
         NONE,    // Sem som / silêncio
         GRAVE,   // Tom grave (baixa frequência: ~85Hz - 230Hz, ressonância torácica)
@@ -22,15 +18,14 @@ public class AudioCaptureService {
         AGUDO    // Tom agudo (alta frequência: ~420Hz - 1400Hz, ressonância de cabeça/falsete/assobio)
     }
 
+    // Configuração do microfone: taxa de amostragem e tamanho do buffer de análise.
     private static final float SAMPLE_RATE = 22050f;
-    private static final int BUFFER_SAMPLES = 1024; // ~46ms por análise de pitch
+    private static final int BUFFER_SAMPLES = 1024;
     private static final float VOLUME_THRESHOLD = 380f;
 
-    // Frequências limítrofes terapêuticas (Hz)
     private static final float PITCH_LOW_MAX_HZ = 230f;
     private static final float PITCH_HIGH_MIN_HZ = 420f;
 
-    // Volume simulado quando teclas de atalho são acionadas
     private static final float SIMULATED_STABLE_VOLUME = 1450f;
 
     private TargetDataLine microphone;

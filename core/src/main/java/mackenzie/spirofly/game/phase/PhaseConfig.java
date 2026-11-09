@@ -6,19 +6,42 @@ package mackenzie.spirofly.game.phase;
  */
 public class PhaseConfig {
 
+    // Número identificador da fase atual.
     public final int phaseNumber;
+
+    // Nome exibido para o jogador e para o relatório clínico.
     public final String title;
+
+    // Descrição da missão da fase.
     public final String description;
+
+    // Tempo total da fase em segundos.
     public final float durationSeconds;
+
+    // Faixa vertical ideal do corredor em que o balão deve permanecer.
     public final float targetCorridorYMin;
     public final float targetCorridorYMax;
+
+    // Faixa de volume respiratório esperada para um desempenho adequado.
     public final float targetVolumeMin;
     public final float targetVolumeMax;
+
+    // Indica se a fase possui nuvens/turbulência.
     public final boolean hasClouds;
+
+    // Indica se a fase tem pássaros como obstáculo.
     public final boolean hasBirds;
+
+    // Indica se a fase tem moedas para coleta.
     public final boolean hasCoins;
+
+    // Indica se o jogador precisa variar tom agudo/grave.
     public final boolean hasPitchModulation;
+
+    // Indica se a fase usa passagens estreitas em vez do corredor largo normal.
     public final boolean isNarrowPassages;
+
+    // Altura da passagem estreita quando o corredor é reduzido.
     public final float narrowCorridorHeight;
 
     public PhaseConfig(int phaseNumber, String title, String description, float durationSeconds,

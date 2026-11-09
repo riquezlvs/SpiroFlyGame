@@ -11,10 +11,16 @@ import java.util.LinkedList;
  */
 public class ConsistencyTracker {
 
+    // Limite mínimo para considerar que o jogador está soprando ativamente.
     private static final float VOLUME_THRESHOLD = 380f;
-    private static final float INTERRUPTION_GRACE_PERIOD = 0.35f; // segundos tolerados antes de considerar quebra
-    private static final int ROLLING_SAMPLE_SIZE = 60; // ~1 segundo a 60 FPS
 
+    // Tempo tolerado sem sopro antes de marcar uma interrupção.
+    private static final float INTERRUPTION_GRACE_PERIOD = 0.35f;
+
+    // Janela de volume recente usada para calcular estabilidade e consistência.
+    private static final int ROLLING_SAMPLE_SIZE = 60;
+
+    // Guarda os valores de volume mais recentes para análise estatística.
     private final LinkedList<Float> recentVolumes = new LinkedList<>();
 
     private float totalPhaseTime = 0f;
